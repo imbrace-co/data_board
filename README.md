@@ -180,7 +180,4 @@ Key groups:
 
 ## License
 
-This project is dual-licensed:
-
-- Files **without** `.ee.` in their path are covered by the iMBrace Sustainable Use License — see [LICENSE.md](LICENSE.md).
-- Files **with** `.ee.` in their path are covered by the iMBrace Enterprise License — see [LICENSE_EE.md](LICENSE_EE.md).
+MIT — see [LICENSE](LICENSE).
