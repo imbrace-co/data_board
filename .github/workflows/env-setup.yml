@@ -1,0 +1,29 @@
+name: Environment setup regression
+on:
+  pull_request:
+    paths:
+      - src/config/**
+      - src/__tests__/config-env.test.ts
+      - .github/workflows/env-setup.yml
+      - package.json
+      - pnpm-lock.yaml
+  push:
+    branches: [main]
+    paths:
+      - src/config/**
+      - src/__tests__/config-env.test.ts
+      - .github/workflows/env-setup.yml
+      - package.json
+      - pnpm-lock.yaml
+jobs:
+  environment:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec vitest run src/__tests__/config-env.test.ts
