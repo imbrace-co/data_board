@@ -36,9 +36,15 @@ pnpm install
 ### 2. Configure environment
 
 ```bash
-cp .env.example src/.env
-# Edit src/.env with your values
+cp .env.example .env
+# Edit .env with your values
 ```
+
+The root `.env` is shared by the service, Drizzle CLI, and Docker Compose.
+Existing process environment variables take precedence. For compatibility, the
+service also loads `src/.env` first, so legacy values override the root file.
+If you still have `src/.env`, migrate its values to `.env` and remove it to keep
+the service and migration CLI aligned.
 
 The minimum required variables for a local PostgreSQL setup:
 

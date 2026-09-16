@@ -1,5 +1,7 @@
 import dotenv from "dotenv";
+// Preserve legacy local values, then fill missing values from the shared root file.
 dotenv.config({ path: "src/.env" });
+dotenv.config();
 
 interface Config {
   port: number;
