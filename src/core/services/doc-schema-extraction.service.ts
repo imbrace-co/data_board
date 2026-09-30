@@ -173,6 +173,19 @@ export interface ExtractAttributesInput {
 }
 
 /**
+ * Hosts that mean "the machine making the request". Harmless in a browser URL,
+ * wrong the moment that URL is handed to another service: inside a container,
+ * `localhost:9001` is that container itself, not the gateway.
+ */
+const LOOPBACK_HOSTS = new Set([
+  "localhost",
+  "127.0.0.1",
+  "0.0.0.0",
+  "::1",
+  "[::1]",
+]);
+
+/**
  * Make a stored file reference fetchable by the upstream OCR service.
  *
  * References are stored as bare keys (`files/download/<key>`) because no single
@@ -182,16 +195,38 @@ export interface ExtractAttributesInput {
  * usable base: join the key onto in-cluster file-service instead.
  *
  * Absolute URLs pass through untouched, which keeps environments that still
- * store fully-qualified URLs (S3) working.
+ * store fully-qualified URLs (S3) working — EXCEPT loopback ones. A reference
+ * like `http://localhost:9001/files/download/<key>` is what `/boards/upload`
+ * hands back to the browser (built from APP_GATEWAY_HOST, correctly a
+ * browser-side address), and the client echoes it straight back in `file_urls`.
+ * Passing that through unchanged fails with `ECONNREFUSED` in the reader, so
+ * re-base it like a bare key. Only loopback is rewritten: a real remote host is
+ * still assumed to be reachable as given.
  *
  * @param reference - Stored key or path, or an already-absolute URL
  * @returns A URL the upstream service can request
  */
 export function toInternalFileUrl(reference: string): string {
   const trimmed = (reference ?? "").trim();
-  if (!trimmed || /^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return trimmed;
+  if (!trimmed) return trimmed;
 
-  const key = trimmed.replace(/^\/+/, "").replace(/^api\//, "");
+  let key = trimmed;
+
+  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) {
+    let parsed: URL;
+    try {
+      parsed = new URL(trimmed);
+    } catch {
+      // Not parseable as a URL after all — leave it for the caller to fail on
+      // with its own error rather than mangling it here.
+      return trimmed;
+    }
+    if (!LOOPBACK_HOSTS.has(parsed.hostname.toLowerCase())) return trimmed;
+    // Drop the unusable origin, keep everything that identifies the file.
+    key = `${parsed.pathname}${parsed.search}`;
+  }
+
+  key = key.replace(/^\/+/, "").replace(/^api\//, "");
   const base = config.fsServiceUrl.replace(/\/+$/, "");
   // FS_SERVICE_URL normally already ends at file-service's `/api/files`, and the
   // stored key repeats that `files/` segment — emitting both gives
