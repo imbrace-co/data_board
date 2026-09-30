@@ -10,6 +10,7 @@ import type { DatabaseClient } from "../../infrastructure/database/types";
 import type * as boardSchema from "../../db/drizzle/schema";
 import { BoardService } from "../../core/services/board.service";
 import { OntologyService } from "../../core/services/ontology.service";
+import { toInternalFileUrl } from "../../core/services/doc-schema-extraction.service";
 import {
   createBoardSchema,
   updateBoardSchema,
@@ -662,7 +663,7 @@ boardController.post("/:id/import_csv", async (c) => {
 
     // Fetch the CSV. S3 objects were uploaded with public-read so a plain
     // fetch is enough — matches how legacy backend hits its own urls in dev.
-    const res = await fetch(fileUrl);
+    const res = await fetch(toInternalFileUrl(fileUrl));
     if (!res.ok) {
       return c.json(
         {
@@ -1091,7 +1092,7 @@ boardController.post("/:id/import_excel", async (c) => {
       );
     }
 
-    const res = await fetch(fileUrl);
+    const res = await fetch(toInternalFileUrl(fileUrl));
     if (!res.ok) {
       return c.json(
         {
@@ -1358,7 +1359,7 @@ boardController.post("/:id/import_excel", async (c) => {
       );
     }
 
-    const res = await fetch(fileUrl);
+    const res = await fetch(toInternalFileUrl(fileUrl));
     if (!res.ok) {
       return c.json(
         { status: "error", message: `Failed to fetch file: HTTP ${res.status}` },

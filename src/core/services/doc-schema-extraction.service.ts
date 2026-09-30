@@ -172,6 +172,34 @@ export interface ExtractAttributesInput {
   board_schema_url?: string;
 }
 
+/**
+ * Make a stored file reference fetchable by the upstream OCR service.
+ *
+ * References are stored as bare keys (`files/download/<key>`) because no single
+ * host serves every reader — see infrastructure/storage/public-upload.ts. The
+ * reader here is messagesuggestion, which downloads the file server-side from
+ * inside the cluster, so neither the browser's origin nor a public host is a
+ * usable base: join the key onto in-cluster file-service instead.
+ *
+ * Absolute URLs pass through untouched, which keeps environments that still
+ * store fully-qualified URLs (S3) working.
+ *
+ * @param reference - Stored key or path, or an already-absolute URL
+ * @returns A URL the upstream service can request
+ */
+export function toInternalFileUrl(reference: string): string {
+  const trimmed = (reference ?? "").trim();
+  if (!trimmed || /^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return trimmed;
+
+  const key = trimmed.replace(/^\/+/, "").replace(/^api\//, "");
+  const base = config.fsServiceUrl.replace(/\/+$/, "");
+  // FS_SERVICE_URL normally already ends at file-service's `/api/files`, and the
+  // stored key repeats that `files/` segment — emitting both gives
+  // `/api/files/files/download/...`, a 404 that looks like a missing file.
+  const path = /\/files$/.test(base) ? key.replace(/^files\//, "") : key;
+  return `${base}/${path}`;
+}
+
 export interface ExtractAttributesCredentials {
   accessToken?: string;
   apiKey?: string;
@@ -396,7 +424,10 @@ export class DocSchemaExtractionService {
     }
 
     const body: Record<string, unknown> = {
-      file_urls: input.file_urls,
+      // Rewrite stored bare-key references onto the in-cluster file-service so
+      // the upstream OCR reader (which downloads server-side from inside the
+      // cluster) can fetch them; already-absolute URLs pass through untouched.
+      file_urls: input.file_urls.map(toInternalFileUrl),
       organization_id: organizationId,
     };
     if (input.provider_id) body.provider_id = input.provider_id;
